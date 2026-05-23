@@ -25,7 +25,7 @@ import java.util.Locale;
 
 public class RecipeDetailActivity extends AppCompatActivity {
 
-    private EditText editTitle, editIngredients, editInstructions, editNotes;
+    private EditText editTitle, editOrigin, editIngredients, editInstructions, editNotes;
     private RatingBar ratingBar;
     private MaterialButton btnSave, btnDelete, btnKitchenMode, btnTimer, btnRetryTranslation, btnWatchVideo;
     private ImageView imgRecipe;
@@ -77,6 +77,7 @@ public class RecipeDetailActivity extends AppCompatActivity {
         cardTranslationWarning = findViewById(R.id.cardTranslationWarning);
         imgRecipe = findViewById(R.id.imgRecipeDetail);
         toolbar = findViewById(R.id.toolbar);
+        editOrigin = findViewById(R.id.editOrigin);
     }
 
     private void checkIntent() {
@@ -95,7 +96,12 @@ public class RecipeDetailActivity extends AppCompatActivity {
         if (currentRecipe != null) {
             editTitle.setText(currentRecipe.getTitulo());
             editInstructions.setText(currentRecipe.getPassoAPasso());
-            
+            editTitle.setText(currentRecipe.getTitulo());
+
+            if (currentRecipe.getOrigem() != null) {
+                editOrigin.setText(currentRecipe.getOrigem());
+            }
+
             if (currentRecipe.getFotoUrl() != null && !currentRecipe.getFotoUrl().isEmpty()) {
                 Glide.with(this).load(currentRecipe.getFotoUrl()).into(imgRecipe);
             }
@@ -125,6 +131,12 @@ public class RecipeDetailActivity extends AppCompatActivity {
 
     private void loadRecipe(long id) {
         currentRecipe = receitaDao.getRecipeById(id);
+        editTitle.setText(currentRecipe.getTitulo());
+
+        if (currentRecipe.getOrigem() != null) {
+            editOrigin.setText(currentRecipe.getOrigem());
+        }
+
         if (currentRecipe != null) {
             editTitle.setText(currentRecipe.getTitulo());
             editInstructions.setText(currentRecipe.getPassoAPasso());
@@ -235,8 +247,10 @@ public class RecipeDetailActivity extends AppCompatActivity {
 
     private void saveRecipe() {
         String title = editTitle.getText().toString().trim();
+        String origin = editOrigin.getText().toString().trim();
         String instructions = editInstructions.getText().toString().trim();
         String ingredientsStr = editIngredients.getText().toString().trim();
+
 
         if (title.isEmpty()) {
             editTitle.setError("O título é obrigatório");
@@ -248,6 +262,7 @@ public class RecipeDetailActivity extends AppCompatActivity {
         }
 
         currentRecipe.setTitulo(title);
+        currentRecipe.setOrigem(origin);
         currentRecipe.setPassoAPasso(instructions);
         currentRecipe.setNotasPessoais(editNotes.getText().toString());
         currentRecipe.setClassificacao((int) ratingBar.getRating());

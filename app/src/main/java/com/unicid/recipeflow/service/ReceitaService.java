@@ -96,6 +96,12 @@ public class ReceitaService {
                 .addOnSuccessListener(tituloPt -> {
                     receita.setTitulo(tituloPt);
 
+                    if (receita.getOrigem() != null && !receita.getOrigem().isEmpty()) {
+                        translator.translate(receita.getOrigem()).addOnSuccessListener(origemPt -> {
+                            receita.setOrigem(origemPt);
+                        });
+                    }
+
                     // 2. Traduzir o Passo a Passo
                     translator.translate(receita.getPassoAPasso())
                             .addOnSuccessListener(passoPt -> {

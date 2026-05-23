@@ -15,6 +15,7 @@ public class MealResponse {
         
         Receita receita = new Receita();
         receita.setTitulo(map.get("strMeal"));
+        receita.setOrigem(map.get("strArea"));
         receita.setPassoAPasso(map.get("strInstructions"));
         receita.setFotoUrl(map.get("strMealThumb"));
         receita.setVideoUrl(map.get("strYoutube"));

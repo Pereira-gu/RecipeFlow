@@ -22,6 +22,7 @@ public class Receita implements Serializable {
     private int classificacao;
     private String notasPessoais;
     private long createdAt;
+    private String origem;
 
     @Ignore
     private List<Ingrediente> ingredientes;
@@ -73,6 +74,9 @@ public class Receita implements Serializable {
 
     public String getPassoAPasso() { return passoAPasso; }
     public void setPassoAPasso(String passoAPasso) { this.passoAPasso = passoAPasso; }
+
+    public String getOrigem() { return origem; }
+    public void setOrigem(String origem) { this.origem = origem; }
 
     public boolean isDeleted() { return isDeleted; }
     public void setDeleted(boolean deleted) { isDeleted = deleted; }
