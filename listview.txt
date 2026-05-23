@@ -1,0 +1,80 @@
+RecipeFlow: Documento de Estruturação de Projeto
+Este documento detalha a arquitetura, requisitos e o modelo de dados para o desenvolvimento do aplicativo RecipeFlow, um diário gastronômico inteligente com persistência local e integração com APIs externas.
+1. Visão Geral
+O RecipeFlow tem como objetivo servir como um diário pessoal de receitas, permitindo que o usuário registre, gerencie e descubra novas experiências culinárias. A aplicação utilizará uma interface baseada em ListView para exibição de conteúdo e um banco de dados local para armazenamento offline, seguindo padrões de engenharia de software modernos como o uso de DTOs e Service Layer.
+2. Requisitos Funcionais
+2.1 Gestão de Receitas (CRUD)
+Adicionar Receita: O usuário deve ser capaz de inserir título, lista de ingredientes, foto, vídeo e o passo a passo detalhado.
+Visualização (ListView): Listagem principal das receitas salvas no diário local.
+Edição: Alterar qualquer dado de uma receita existente.
+Exclusão (Soft Delete): Implementação de exclusão lógica, onde o registro não é removido permanentemente de imediato, permitindo recuperação ou auditoria.
+2.2 Busca e Filtros
+Barra de Pesquisa: Filtragem em tempo real pelo título da receita.
+Filtro por Ingrediente: Busca de receitas que contenham um ingrediente específico informado pelo usuário.
+Tags Personalizadas: Implemente tags personalizadas (ex: "Vegana", "Rápida", "Jantar", "Econômica") para filtros avançados que vão além da busca por ingredientes ou título.
+2.3 Inteligência de Sorteio
+Sorteio Local: Funcionalidade para selecionar aleatoriamente uma das receitas já cadastradas no diário.
+Descoberta Externa (API): Botão para buscar uma receita aleatória em uma API externa (como a TheMealDB), garantindo que a sugestão seja diferente das receitas já existentes no diário do usuário. A resposta será traduzida para português utilizando uma API de tradução dedicada. A API a ser utilizada é themealdb.com/api/json/v1/1/random.php.
+2.4 Experiência do Usuário (UX) e Otimização
+Lista de Compras Integrada: Gerar lista a partir de ingredientes de receitas selecionadas, com funcionalidade de marcar itens.
+Modo Cozinha (Kitchen Mode): Manter tela ligada e usar fontes grandes/alto contraste para leitura durante o preparo.
+Contador de Tempo Integrado: Temporizador acionável diretamente dos passos da receita.
+Conversor de Unidades: Ferramenta rápida para converter medidas (gramas, xícaras, etc.).
+Classificação e Notas: Permitir que o usuário adicione notas pessoais e uma classificação por estrelas às receitas.
+Otimização de Mídia: Implementar compressão e cache local para fotos/vídeos das receitas.
+3. Arquitetura Técnica Sugerida
+Baseado em padrões de projetos anteriores bem-sucedidos, a stack recomendada é:
+
+
+
+Componente
+Tecnologia
+Finalidade
+Linguagem
+Java (Android Nativo)
+Desempenho e acesso a hardware.
+Banco de Dados
+SQLite / Room
+Persistência local do diário de receitas.
+Networking
+Retrofit 2
+Comunicação assíncrona com API de receitas.
+Serialização
+Gson
+Conversão de JSON para objetos Java.
+Padrão de Projeto
+DTO e Service Layer
+Isolamento de regras de negócio e segurança de dados.
+API de Tradução
+https://libretranslate.de/translate
+Tradução da receita externa para o português.
+
+4. Modelo de Dados (Local DB)
+O banco de dados local deve conter a tabela Receita com os seguintes campos:
+
+id: Long (Primary Key)
+titulo: String
+Tabela Ingredientes: Implementar relação N:N com a tabela Receita para busca robusta e Lista de Compras.
+foto_url: String
+video_url: String
+passo_a_passo: Text
+is_deleted: Boolean (Para suporte ao Soft Delete)
+classificacao: Integer (1-5)
+notas_pessoais: Text
+created_at: Timestamp
+5. Plano de Desenvolvimento
+O cronograma de execução seguirá as seguintes etapas:
+
+Fase 1 - Design e UI: Prototipagem da ListView e telas de formulário.
+Fase 2 - Persistência: Configuração do banco de dados local e repositórios.
+Fase 3 - Integração API: Implementação do serviço Retrofit para o sorteio externo.
+Fase 4 - Lógica de Negócio: Filtros, barra de pesquisa e validação de duplicidade.
+
+
+
+Responsáveis pelo Projeto:
+
+Desenvolvedor Principal: Gustavo Pereira
+Arquiteto de Software: Person
+Data de Início: 22 de mai. de 2026
+
