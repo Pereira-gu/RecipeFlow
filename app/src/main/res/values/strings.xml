@@ -3,4 +3,8 @@
     <string name="translation_failed_warning">A tradução falhou. Algumas partes podem estar em inglês.</string>
     <string name="retry">Tentar</string>
     <string name="watch_video">Vídeo</string>
+    <string name="empty_view_default_title">Nenhuma receita por aqui...</string>
+    <string name="empty_view_default_sub">Que tal sortear uma sugestão externa?</string>
+    <string name="empty_view_search_title">Nenhum resultado encontrado</string>
+    <string name="empty_view_search_sub">Tente termos mais genéricos ou verifique a ortografia.</string>
 </resources>

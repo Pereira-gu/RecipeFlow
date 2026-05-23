@@ -104,6 +104,7 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public boolean onQueryTextChange(String newText) {
                 List<Receita> filtered = receitaService.filtrar(recipeList, newText);
+                updateEmptyViewForSearch(!newText.isEmpty() && filtered.isEmpty());
                 adapter.updateList(filtered);
                 return true;
             }
@@ -142,5 +143,21 @@ public class MainActivity extends AppCompatActivity {
                 }
             });
         });
+    }
+
+    private void updateEmptyViewForSearch(boolean isNoResults) {
+        android.widget.TextView icon = findViewById(R.id.emptyViewIcon);
+        android.widget.TextView title = findViewById(R.id.emptyViewTitle);
+        android.widget.TextView sub = findViewById(R.id.emptyViewSub);
+
+        if (isNoResults) {
+            icon.setText("🔍");
+            title.setText(R.string.empty_view_search_title);
+            sub.setText(R.string.empty_view_search_sub);
+        } else {
+            icon.setText("📖");
+            title.setText(R.string.empty_view_default_title);
+            sub.setText(R.string.empty_view_default_sub);
+        }
     }
 }

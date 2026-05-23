@@ -60,12 +60,14 @@
             android:visibility="gone">
 
             <TextView
+                android:id="@+id/emptyViewIcon"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="📖"
                 android:textSize="64sp" />
 
             <TextView
+                android:id="@+id/emptyViewTitle"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Nenhuma receita por aqui..."
@@ -73,6 +75,7 @@
                 android:textStyle="bold" />
 
             <TextView
+                android:id="@+id/emptyViewSub"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Que tal sortear uma sugestão externa?"
