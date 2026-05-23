@@ -33,29 +33,53 @@
         android:layout_marginBottom="8dp">
 
         <Button
-            android:id="@+id/btnSorteioLocal"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="Sorteio Local"
-            android:layout_marginEnd="4dp" />
-
-        <Button
             android:id="@+id/btnSorteioExterno"
-            android:layout_width="0dp"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="Descoberta (API)"
-            android:layout_marginStart="4dp" />
+            android:text="Explorar Sabores" />
     </LinearLayout>
 
-    <ListView
-        android:id="@+id/listViewRecipes"
+    <FrameLayout
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:layout_weight="1"
-        android:divider="@android:color/darker_gray"
-        android:dividerHeight="1dp" />
+        android:layout_weight="1">
+
+        <ListView
+            android:id="@+id/listViewRecipes"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:divider="@android:color/darker_gray"
+            android:dividerHeight="1dp" />
+
+        <LinearLayout
+            android:id="@+id/emptyView"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:gravity="center"
+            android:orientation="vertical"
+            android:visibility="gone">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="📖"
+                android:textSize="64sp" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Nenhuma receita por aqui..."
+                android:textSize="18sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Que tal sortear uma sugestão externa?"
+                android:textSize="14sp"
+                android:alpha="0.7" />
+        </LinearLayout>
+    </FrameLayout>
 
     <com.google.android.material.floatingactionbutton.FloatingActionButton
         android:id="@+id/fabAddRecipe"

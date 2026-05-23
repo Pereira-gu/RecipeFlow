@@ -66,6 +66,12 @@ public class MainActivity extends AppCompatActivity {
         searchView = findViewById(R.id.searchViewRecipes);
         fabAdd = findViewById(R.id.fabAddRecipe);
         
+        // Configura Empty View (Aviso de lista vazia)
+        android.view.View emptyView = findViewById(R.id.emptyView);
+        if (emptyView != null) {
+            listViewRecipes.setEmptyView(emptyView);
+        }
+
         recipeList = new ArrayList<>();
         adapter = new RecipeAdapter(this, recipeList);
         listViewRecipes.setAdapter(adapter);
@@ -103,24 +109,11 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
-        // Sorteio Local (Requisito 2.3)
-        findViewById(R.id.btnSorteioLocal).setOnClickListener(v -> {
-            Receita sorteada = receitaService.sortearLocal(recipeList);
-            if (sorteada != null) {
-                Toast.makeText(this, "Sugestão: " + sorteada.getTitulo(), Toast.LENGTH_LONG).show();
-                Intent intent = new Intent(this, RecipeDetailActivity.class);
-                intent.putExtra("RECIPE_ID", sorteada.getId());
-                startActivity(intent);
-            } else {
-                Toast.makeText(this, "Nenhuma receita salva para sortear.", Toast.LENGTH_SHORT).show();
-            }
-        });
-
         // Descoberta Externa + Tradução (Requisito 2.3)
         findViewById(R.id.btnSorteioExterno).setOnClickListener(v -> {
             android.app.ProgressDialog progress = new android.app.ProgressDialog(this);
-            progress.setTitle("Buscando Receita");
-            progress.setMessage("Consultando o Chef Internacional e traduzindo...");
+            progress.setTitle("O Chef está pensando...");
+            progress.setMessage("Buscando segredos culinários pelo mundo...");
             progress.setCancelable(false);
             progress.show();
 

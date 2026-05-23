@@ -22,6 +22,7 @@ import androidx.core.view.WindowInsetsCompat;
 import com.bumptech.glide.Glide;
 
 import com.google.android.material.button.MaterialButton;
+import com.google.android.material.snackbar.Snackbar;
 import com.unicid.recipeflow.model.Ingrediente;
 import com.unicid.recipeflow.model.Receita;
 import com.unicid.recipeflow.model.ReceitaIngredienteCrossRef;
@@ -109,7 +110,7 @@ public class RecipeDetailActivity extends AppCompatActivity {
         if (editItem != null) {
             editItem.setVisible(isEditMode && !isUserEditing && !isKitchenModeActive);
         }
-        
+
         // Mostrar reroll APENAS se for uma receita aleatória (externa) e não estivermos no modo cozinha
         android.view.MenuItem rerollItem = menu.findItem(R.id.action_reroll);
         if (rerollItem != null) {
@@ -132,6 +133,10 @@ public class RecipeDetailActivity extends AppCompatActivity {
 
     private void setEditEnabled(boolean enabled) {
         isUserEditing = enabled;
+        
+        // Transição suave
+        android.transition.TransitionManager.beginDelayedTransition((android.view.ViewGroup) findViewById(R.id.nestedScrollViewDetail));
+
         editTitle.setEnabled(enabled);
         editOrigin.setEnabled(enabled);
         editIngredients.setEnabled(enabled);
@@ -146,6 +151,7 @@ public class RecipeDetailActivity extends AppCompatActivity {
             btnDelete.setVisibility(enabled ? View.VISIBLE : View.GONE);
         }
         
+        if (!enabled) hideKeyboard();
         invalidateOptionsMenu();
     }
 
@@ -193,7 +199,6 @@ public class RecipeDetailActivity extends AppCompatActivity {
         if (currentRecipe != null) {
             editTitle.setText(currentRecipe.getTitulo());
             editInstructions.setText(currentRecipe.getPassoAPasso());
-            editTitle.setText(currentRecipe.getTitulo());
             editVideoUrl.setText(currentRecipe.getVideoUrl());
 
             if (currentRecipe.getOrigem() != null) {
@@ -310,8 +315,15 @@ public class RecipeDetailActivity extends AppCompatActivity {
 
     private void watchVideo() {
         if (currentRecipe != null && currentRecipe.getVideoUrl() != null && !currentRecipe.getVideoUrl().isEmpty()) {
-            android.content.Intent intent = new android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(currentRecipe.getVideoUrl()));
-            startActivity(intent);
+            android.net.Uri videoUri = android.net.Uri.parse(currentRecipe.getVideoUrl());
+            android.content.Intent intent = new android.content.Intent(android.content.Intent.ACTION_VIEW, videoUri);
+            
+            // Validar se existe um app para lidar com a Intent
+            if (intent.resolveActivity(getPackageManager()) != null) {
+                startActivity(intent);
+            } else {
+                Toast.makeText(this, "Nenhum aplicativo encontrado para abrir o vídeo.", Toast.LENGTH_SHORT).show();
+            }
         }
     }
 
@@ -342,8 +354,8 @@ public class RecipeDetailActivity extends AppCompatActivity {
 
     private void rerollRecipe() {
         android.app.ProgressDialog progress = new android.app.ProgressDialog(this);
-        progress.setTitle("Buscando Nova Sugestão");
-        progress.setMessage("Consultando o Chef e traduzindo...");
+        progress.setTitle("O Chef está inspirado!");
+        progress.setMessage("Buscando uma nova surpresa para você...");
         progress.setCancelable(false);
         progress.show();
 
@@ -358,7 +370,7 @@ public class RecipeDetailActivity extends AppCompatActivity {
                     isRandomRecipe = true;
                     preFillFromExternal();
                     setEditEnabled(true); 
-                    Toast.makeText(RecipeDetailActivity.this, "Nova receita sorteada!", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(RecipeDetailActivity.this, "Prontinho! Uma nova ideia para você. ✨", Toast.LENGTH_SHORT).show();
                 });
             }
 
@@ -366,7 +378,13 @@ public class RecipeDetailActivity extends AppCompatActivity {
             public void onError(String message) {
                 runOnUiThread(() -> {
                     progress.dismiss();
-                    Toast.makeText(RecipeDetailActivity.this, "Erro ao buscar nova receita: " + message, Toast.LENGTH_LONG).show();
+                    String userFriendlyMessage = "Erro ao buscar nova receita: " + message;
+                    if (message != null && (message.toLowerCase().contains("unable to resolve host") || 
+                        message.toLowerCase().contains("timeout") || 
+                        message.toLowerCase().contains("network"))) {
+                        userFriendlyMessage = "Sem conexão com a internet. Verifique seu sinal e tente novamente! 📶";
+                    }
+                    Snackbar.make(findViewById(R.id.nestedScrollViewDetail), userFriendlyMessage, Snackbar.LENGTH_LONG).show();
                 });
             }
         });
@@ -374,7 +392,11 @@ public class RecipeDetailActivity extends AppCompatActivity {
 
     private void toggleKitchenMode() {
         isKitchenModeActive = !isKitchenModeActive;
+        // Transição suave para o modo cozinha
+        android.transition.TransitionManager.beginDelayedTransition((android.view.ViewGroup) findViewById(R.id.nestedScrollViewDetail));
+        
         if (isKitchenModeActive) {
+            hideKeyboard();
             getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
             editInstructions.setTextSize(22);
             editIngredients.setTextSize(20);
@@ -444,6 +466,9 @@ public class RecipeDetailActivity extends AppCompatActivity {
             return;
         }
 
+        btnSave.setEnabled(false); // Evitar cliques duplos
+        hideKeyboard();
+
         if (currentRecipe == null) {
             currentRecipe = new Receita();
         }
@@ -456,19 +481,25 @@ public class RecipeDetailActivity extends AppCompatActivity {
         currentRecipe.setVideoUrl(videoUrl);
 
         new Thread(() -> {
-            if (isEditMode) {
-                receitaDao.updateReceita(currentRecipe);
-                // Atualizar ingredientes: remove os antigos e insere os novos
-                receitaDao.deleteIngredientsForRecipe(currentRecipe.getId());
-                saveIngredients(currentRecipe.getId(), ingredientsStr);
-                runOnUiThread(() -> Toast.makeText(this, "Atualizado!", Toast.LENGTH_SHORT).show());
-            } else {
-                long id = receitaDao.insertReceita(currentRecipe);
-                currentRecipe.setId(id);
-                saveIngredients(id, ingredientsStr);
-                runOnUiThread(() -> Toast.makeText(this, "Adicionado ao Diário!", Toast.LENGTH_SHORT).show());
+            try {
+                if (isEditMode) {
+                    receitaDao.updateReceita(currentRecipe);
+                    receitaDao.deleteIngredientsForRecipe(currentRecipe.getId());
+                    saveIngredients(currentRecipe.getId(), ingredientsStr);
+                    runOnUiThread(() -> Toast.makeText(this, "Alterações salvas! 📝", Toast.LENGTH_SHORT).show());
+                } else {
+                    long id = receitaDao.insertReceita(currentRecipe);
+                    currentRecipe.setId(id);
+                    saveIngredients(id, ingredientsStr);
+                    runOnUiThread(() -> Toast.makeText(this, "Salvo no seu Diário! 📖✨", Toast.LENGTH_SHORT).show());
+                }
+                runOnUiThread(this::finish);
+            } catch (Exception e) {
+                runOnUiThread(() -> {
+                    btnSave.setEnabled(true);
+                    Toast.makeText(this, "Erro ao salvar: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                });
             }
-            runOnUiThread(this::finish);
         }).start();
     }
 
@@ -489,7 +520,7 @@ public class RecipeDetailActivity extends AppCompatActivity {
     private void deleteRecipe() {
         if (currentRecipe != null && currentRecipe.getId() != null) {
             receitaDao.softDelete(currentRecipe.getId());
-            Toast.makeText(this, "Excluído", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "Receita removida do diário.", Toast.LENGTH_SHORT).show();
             finish();
         }
     }
@@ -510,6 +541,22 @@ public class RecipeDetailActivity extends AppCompatActivity {
         } catch (Exception e) {
             e.printStackTrace();
             return null;
+        }
+    }
+
+    private void hideKeyboard() {
+        View view = this.getCurrentFocus();
+        if (view != null) {
+            android.view.inputmethod.InputMethodManager imm = (android.view.inputmethod.InputMethodManager) getSystemService(android.content.Context.INPUT_METHOD_SERVICE);
+            if (imm != null) imm.hideSoftInputFromWindow(view.getWindowToken(), 0);
+        }
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        if (countDownTimer != null) {
+            countDownTimer.cancel();
         }
     }
 }

@@ -200,10 +200,4 @@ public class ReceitaService {
         }
         return filtradas;
     }
-
-    public Receita sortearLocal(List<Receita> receitas) {
-        if (receitas == null || receitas.isEmpty()) return null;
-        int index = (int) (Math.random() * receitas.size());
-        return receitas.get(index);
-    }
 }
