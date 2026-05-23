@@ -27,7 +27,7 @@ public class RecipeDetailActivity extends AppCompatActivity {
 
     private EditText editTitle, editIngredients, editInstructions, editNotes;
     private RatingBar ratingBar;
-    private MaterialButton btnSave, btnDelete, btnKitchenMode, btnTimer, btnRetryTranslation;
+    private MaterialButton btnSave, btnDelete, btnKitchenMode, btnTimer, btnRetryTranslation, btnWatchVideo;
     private ImageView imgRecipe;
     private Toolbar toolbar;
     private View cardTranslationWarning;
@@ -73,6 +73,7 @@ public class RecipeDetailActivity extends AppCompatActivity {
         btnKitchenMode = findViewById(R.id.btnKitchenMode);
         btnTimer = findViewById(R.id.btnTimer);
         btnRetryTranslation = findViewById(R.id.btnRetryTranslation);
+        btnWatchVideo = findViewById(R.id.btnWatchVideo);
         cardTranslationWarning = findViewById(R.id.cardTranslationWarning);
         imgRecipe = findViewById(R.id.imgRecipeDetail);
         toolbar = findViewById(R.id.toolbar);
@@ -97,6 +98,12 @@ public class RecipeDetailActivity extends AppCompatActivity {
             
             if (currentRecipe.getFotoUrl() != null && !currentRecipe.getFotoUrl().isEmpty()) {
                 Glide.with(this).load(currentRecipe.getFotoUrl()).into(imgRecipe);
+            }
+
+            if (currentRecipe.getVideoUrl() != null && !currentRecipe.getVideoUrl().isEmpty()) {
+                btnWatchVideo.setVisibility(View.VISIBLE);
+            } else {
+                btnWatchVideo.setVisibility(View.GONE);
             }
             
             StringBuilder sb = new StringBuilder();
@@ -127,6 +134,24 @@ public class RecipeDetailActivity extends AppCompatActivity {
             if (currentRecipe.getFotoUrl() != null && !currentRecipe.getFotoUrl().isEmpty()) {
                 Glide.with(this).load(currentRecipe.getFotoUrl()).into(imgRecipe);
             }
+
+            if (currentRecipe.getVideoUrl() != null && !currentRecipe.getVideoUrl().isEmpty()) {
+                btnWatchVideo.setVisibility(View.VISIBLE);
+            } else {
+                btnWatchVideo.setVisibility(View.GONE);
+            }
+
+            // Carregar ingredientes do banco
+            new Thread(() -> {
+                java.util.List<Ingrediente> ingredients = receitaDao.getIngredientsForRecipe(id);
+                runOnUiThread(() -> {
+                    StringBuilder sb = new StringBuilder();
+                    for (Ingrediente ing : ingredients) {
+                        sb.append("• ").append(ing.getNome()).append("\n");
+                    }
+                    editIngredients.setText(sb.toString());
+                });
+            }).start();
         }
     }
 
@@ -136,6 +161,14 @@ public class RecipeDetailActivity extends AppCompatActivity {
         btnKitchenMode.setOnClickListener(v -> toggleKitchenMode());
         btnTimer.setOnClickListener(v -> startTimer(5 * 60 * 1000));
         btnRetryTranslation.setOnClickListener(v -> retryTranslation());
+        btnWatchVideo.setOnClickListener(v -> watchVideo());
+    }
+
+    private void watchVideo() {
+        if (currentRecipe != null && currentRecipe.getVideoUrl() != null && !currentRecipe.getVideoUrl().isEmpty()) {
+            android.content.Intent intent = new android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(currentRecipe.getVideoUrl()));
+            startActivity(intent);
+        }
     }
 
     private void retryTranslation() {
@@ -219,16 +252,21 @@ public class RecipeDetailActivity extends AppCompatActivity {
         currentRecipe.setNotasPessoais(editNotes.getText().toString());
         currentRecipe.setClassificacao((int) ratingBar.getRating());
 
-        if (isEditMode) {
-            receitaDao.updateReceita(currentRecipe);
-            Toast.makeText(this, "Salvo!", Toast.LENGTH_SHORT).show();
-        } else {
-            long id = receitaDao.insertReceita(currentRecipe);
-            currentRecipe.setId(id);
-            saveIngredients(id, ingredientsStr);
-            Toast.makeText(this, "Adicionado ao Diário!", Toast.LENGTH_SHORT).show();
-        }
-        finish();
+        new Thread(() -> {
+            if (isEditMode) {
+                receitaDao.updateReceita(currentRecipe);
+                // Atualizar ingredientes: remove os antigos e insere os novos
+                receitaDao.deleteIngredientsForRecipe(currentRecipe.getId());
+                saveIngredients(currentRecipe.getId(), ingredientsStr);
+                runOnUiThread(() -> Toast.makeText(this, "Atualizado!", Toast.LENGTH_SHORT).show());
+            } else {
+                long id = receitaDao.insertReceita(currentRecipe);
+                currentRecipe.setId(id);
+                saveIngredients(id, ingredientsStr);
+                runOnUiThread(() -> Toast.makeText(this, "Adicionado ao Diário!", Toast.LENGTH_SHORT).show());
+            }
+            runOnUiThread(this::finish);
+        }).start();
     }
 
     private void saveIngredients(long recipeId, String ingredientsStr) {

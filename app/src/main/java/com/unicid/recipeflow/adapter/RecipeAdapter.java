@@ -54,8 +54,14 @@ public class RecipeAdapter extends BaseAdapter {
         txtTitle.setText(recipe.getTitulo());
         ratingBar.setRating(recipe.getClassificacao());
         
-        // Note: For actual image loading, we'd use Glide or Picasso later.
-        // For now, it uses the placeholder set in XML.
+        if (recipe.getFotoUrl() != null && !recipe.getFotoUrl().isEmpty()) {
+            com.bumptech.glide.Glide.with(context)
+                .load(recipe.getFotoUrl())
+                .placeholder(android.R.drawable.ic_menu_gallery)
+                .into(imgThumbnail);
+        } else {
+            imgThumbnail.setImageResource(android.R.drawable.ic_menu_gallery);
+        }
 
         return convertView;
     }

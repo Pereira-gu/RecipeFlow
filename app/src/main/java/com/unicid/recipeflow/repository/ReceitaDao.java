@@ -31,6 +31,13 @@ public interface ReceitaDao {
     @Query("SELECT * FROM receitas WHERE id = :id LIMIT 1")
     Receita getRecipeById(long id);
 
+    @Transaction
+    @Query("SELECT * FROM ingredientes WHERE id IN (SELECT idIngrediente FROM receita_ingrediente_cross_ref WHERE idReceita = :recipeId)")
+    List<Ingrediente> getIngredientsForRecipe(long recipeId);
+
+    @Query("DELETE FROM receita_ingrediente_cross_ref WHERE idReceita = :recipeId")
+    void deleteIngredientsForRecipe(long recipeId);
+
     @Update
     void updateReceita(Receita receita);
 

@@ -2,4 +2,5 @@
     <string name="app_name">RecipeFlow</string>
     <string name="translation_failed_warning">A tradução falhou. Algumas partes podem estar em inglês.</string>
     <string name="retry">Tentar</string>
+    <string name="watch_video">Vídeo</string>
 </resources>
