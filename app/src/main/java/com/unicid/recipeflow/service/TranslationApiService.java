@@ -1,25 +1,19 @@
 package com.unicid.recipeflow.service;
 
 import retrofit2.Call;
-import retrofit2.http.Body;
-import retrofit2.http.POST;
+import retrofit2.http.GET;
+import retrofit2.http.Path;
 
 public interface TranslationApiService {
-    @POST("translate")
-    Call<TranslationResponse> translate(@Body TranslationRequest request);
-
-    class TranslationRequest {
-        public String q;
-        public String source = "en";
-        public String target = "pt";
-        public String format = "text";
-
-        public TranslationRequest(String q) {
-            this.q = q;
-        }
-    }
+    // Formato: api/v1/:source/:target/:query
+    @GET("api/v1/{source}/{target}/{query}")
+    Call<TranslationResponse> translate(
+        @Path("source") String source,
+        @Path("target") String target,
+        @Path("query") String query
+    );
 
     class TranslationResponse {
-        public String translatedText;
+        public String translation; // O Lingva retorna o campo "translation"
     }
 }

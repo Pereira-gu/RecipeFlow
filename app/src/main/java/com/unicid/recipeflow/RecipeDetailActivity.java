@@ -4,30 +4,36 @@ import android.os.Bundle;
 import android.os.CountDownTimer;
 import android.view.View;
 import android.view.WindowManager;
-import android.widget.Button;
 import android.widget.EditText;
+import android.widget.ImageView;
 import android.widget.RatingBar;
 import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.widget.Toolbar;
 
+import com.bumptech.glide.Glide;
+import com.google.android.material.button.MaterialButton;
 import com.unicid.recipeflow.model.Ingrediente;
 import com.unicid.recipeflow.model.Receita;
 import com.unicid.recipeflow.model.ReceitaIngredienteCrossRef;
 import com.unicid.recipeflow.repository.AppDatabase;
 import com.unicid.recipeflow.repository.ReceitaDao;
+import com.unicid.recipeflow.service.ReceitaService;
 
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Locale;
 
 public class RecipeDetailActivity extends AppCompatActivity {
 
     private EditText editTitle, editIngredients, editInstructions, editNotes;
     private RatingBar ratingBar;
-    private Button btnSave, btnDelete, btnKitchenMode, btnTimer;
+    private MaterialButton btnSave, btnDelete, btnKitchenMode, btnTimer, btnRetryTranslation;
+    private ImageView imgRecipe;
+    private Toolbar toolbar;
+    private View cardTranslationWarning;
     
     private ReceitaDao receitaDao;
+    private ReceitaService receitaService;
     private Receita currentRecipe;
     private boolean isEditMode = false;
     private boolean isKitchenModeActive = false;
@@ -39,10 +45,21 @@ public class RecipeDetailActivity extends AppCompatActivity {
         setContentView(R.layout.activity_recipe_detail);
 
         receitaDao = AppDatabase.getDatabase(this).receitaDao();
+        receitaService = new ReceitaService(receitaDao);
 
         initializeViews();
+        setupToolbar();
         checkIntent();
         setupListeners();
+    }
+
+    private void setupToolbar() {
+        setSupportActionBar(toolbar);
+        if (getSupportActionBar() != null) {
+            getSupportActionBar().setDisplayHomeAsUpEnabled(true);
+            getSupportActionBar().setTitle("");
+        }
+        toolbar.setNavigationOnClickListener(v -> finish());
     }
 
     private void initializeViews() {
@@ -55,6 +72,10 @@ public class RecipeDetailActivity extends AppCompatActivity {
         btnDelete = findViewById(R.id.btnDelete);
         btnKitchenMode = findViewById(R.id.btnKitchenMode);
         btnTimer = findViewById(R.id.btnTimer);
+        btnRetryTranslation = findViewById(R.id.btnRetryTranslation);
+        cardTranslationWarning = findViewById(R.id.cardTranslationWarning);
+        imgRecipe = findViewById(R.id.imgRecipeDetail);
+        toolbar = findViewById(R.id.toolbar);
     }
 
     private void checkIntent() {
@@ -74,14 +95,24 @@ public class RecipeDetailActivity extends AppCompatActivity {
             editTitle.setText(currentRecipe.getTitulo());
             editInstructions.setText(currentRecipe.getPassoAPasso());
             
+            if (currentRecipe.getFotoUrl() != null && !currentRecipe.getFotoUrl().isEmpty()) {
+                Glide.with(this).load(currentRecipe.getFotoUrl()).into(imgRecipe);
+            }
+            
             StringBuilder sb = new StringBuilder();
             if (currentRecipe.getIngredientes() != null) {
                 for (Ingrediente ing : currentRecipe.getIngredientes()) {
-                    sb.append(ing.getNome()).append("\n");
+                    sb.append("• ").append(ing.getNome()).append("\n");
                 }
             }
             editIngredients.setText(sb.toString());
-            Toast.makeText(this, "Receita importada! Clique em Salvar para guardar no diário.", Toast.LENGTH_LONG).show();
+            
+            if (currentRecipe.isTraducaoFalhou()) {
+                cardTranslationWarning.setVisibility(View.VISIBLE);
+            } else {
+                cardTranslationWarning.setVisibility(View.GONE);
+                Toast.makeText(this, "Receita importada e traduzida!", Toast.LENGTH_SHORT).show();
+            }
         }
     }
 
@@ -93,8 +124,9 @@ public class RecipeDetailActivity extends AppCompatActivity {
             editNotes.setText(currentRecipe.getNotasPessoais());
             ratingBar.setRating(currentRecipe.getClassificacao());
             
-            // Em uma implementação real, buscaríamos os ingredientes da tabela cruzada
-            // Para este exemplo, deixaremos o campo de texto para o usuário
+            if (currentRecipe.getFotoUrl() != null && !currentRecipe.getFotoUrl().isEmpty()) {
+                Glide.with(this).load(currentRecipe.getFotoUrl()).into(imgRecipe);
+            }
         }
     }
 
@@ -102,24 +134,48 @@ public class RecipeDetailActivity extends AppCompatActivity {
         btnSave.setOnClickListener(v -> saveRecipe());
         btnDelete.setOnClickListener(v -> deleteRecipe());
         btnKitchenMode.setOnClickListener(v -> toggleKitchenMode());
-        btnTimer.setOnClickListener(v -> startTimer(5 * 60 * 1000)); // 5 minutos padrão
+        btnTimer.setOnClickListener(v -> startTimer(5 * 60 * 1000));
+        btnRetryTranslation.setOnClickListener(v -> retryTranslation());
+    }
+
+    private void retryTranslation() {
+        if (currentRecipe != null) {
+            Toast.makeText(this, "Tentando traduzir novamente...", Toast.LENGTH_SHORT).show();
+            receitaService.retraduzirReceita(currentRecipe, new ReceitaService.OnExternalRecipeListener() {
+                @Override
+                public void onSuccess(Receita receita) {
+                    currentRecipe = receita;
+                    runOnUiThread(() -> {
+                        preFillFromExternal();
+                        if (!currentRecipe.isTraducaoFalhou()) {
+                            Toast.makeText(RecipeDetailActivity.this, "Tradução concluída!", Toast.LENGTH_SHORT).show();
+                        }
+                    });
+                }
+
+                @Override
+                public void onError(String message) {
+                    runOnUiThread(() -> 
+                        Toast.makeText(RecipeDetailActivity.this, "Erro: " + message, Toast.LENGTH_SHORT).show()
+                    );
+                }
+            });
+        }
     }
 
     private void toggleKitchenMode() {
         isKitchenModeActive = !isKitchenModeActive;
         if (isKitchenModeActive) {
-            // Mantém a tela ligada
             getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
-            // Aumenta o tamanho das fontes (UX - Requisito 2.4)
-            editInstructions.setTextSize(24);
-            editIngredients.setTextSize(22);
-            btnKitchenMode.setText("Sair do Modo Cozinha");
-            Toast.makeText(this, "Modo Cozinha Ativado: Tela ligada e fonte maior.", Toast.LENGTH_SHORT).show();
+            editInstructions.setTextSize(22);
+            editIngredients.setTextSize(20);
+            btnKitchenMode.setText("Sair");
+            Toast.makeText(this, "Modo Cozinha: Tela sempre ligada", Toast.LENGTH_SHORT).show();
         } else {
             getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
-            editInstructions.setTextSize(18);
-            editIngredients.setTextSize(18);
-            btnKitchenMode.setText("Modo Cozinha");
+            editInstructions.setTextSize(16);
+            editIngredients.setTextSize(16);
+            btnKitchenMode.setText("Cozinhar");
         }
     }
 
@@ -138,7 +194,7 @@ public class RecipeDetailActivity extends AppCompatActivity {
 
             @Override
             public void onFinish() {
-                btnTimer.setText("Timer Pronto!");
+                btnTimer.setText("Timer");
                 Toast.makeText(RecipeDetailActivity.this, "Tempo esgotado!", Toast.LENGTH_LONG).show();
             }
         }.start();
@@ -150,7 +206,7 @@ public class RecipeDetailActivity extends AppCompatActivity {
         String ingredientsStr = editIngredients.getText().toString().trim();
 
         if (title.isEmpty()) {
-            Toast.makeText(this, "O título é obrigatório", Toast.LENGTH_SHORT).show();
+            editTitle.setError("O título é obrigatório");
             return;
         }
 
@@ -165,12 +221,12 @@ public class RecipeDetailActivity extends AppCompatActivity {
 
         if (isEditMode) {
             receitaDao.updateReceita(currentRecipe);
-            Toast.makeText(this, "Receita atualizada!", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "Salvo!", Toast.LENGTH_SHORT).show();
         } else {
             long id = receitaDao.insertReceita(currentRecipe);
             currentRecipe.setId(id);
             saveIngredients(id, ingredientsStr);
-            Toast.makeText(this, "Receita salva!", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "Adicionado ao Diário!", Toast.LENGTH_SHORT).show();
         }
         finish();
     }
@@ -180,8 +236,9 @@ public class RecipeDetailActivity extends AppCompatActivity {
 
         String[] lines = ingredientsStr.split("\n");
         for (String line : lines) {
-            if (!line.trim().isEmpty()) {
-                Ingrediente ing = new Ingrediente(null, line.trim());
+            String cleanLine = line.replace("•", "").trim();
+            if (!cleanLine.isEmpty()) {
+                Ingrediente ing = new Ingrediente(null, cleanLine);
                 long ingId = receitaDao.insertIngrediente(ing);
                 receitaDao.insertReceitaIngredienteCrossRef(new ReceitaIngredienteCrossRef(recipeId, ingId));
             }
@@ -191,7 +248,7 @@ public class RecipeDetailActivity extends AppCompatActivity {
     private void deleteRecipe() {
         if (currentRecipe != null && currentRecipe.getId() != null) {
             receitaDao.softDelete(currentRecipe.getId());
-            Toast.makeText(this, "Receita movida para a lixeira", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "Excluído", Toast.LENGTH_SHORT).show();
             finish();
         }
     }

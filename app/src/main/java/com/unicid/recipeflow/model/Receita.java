@@ -27,6 +27,8 @@ public class Receita implements Serializable {
     private List<Ingrediente> ingredientes;
     @Ignore
     private List<String> tags;
+    @Ignore
+    private boolean traducaoFalhou;
 
     public Receita() {
         this.ingredientes = new ArrayList<>();
@@ -83,6 +85,9 @@ public class Receita implements Serializable {
 
     public long getCreatedAt() { return createdAt; }
     public void setCreatedAt(long createdAt) { this.createdAt = createdAt; }
+
+    public boolean isTraducaoFalhou() { return traducaoFalhou; }
+    public void setTraducaoFalhou(boolean traducaoFalhou) { this.traducaoFalhou = traducaoFalhou; }
 
     @Override
     public String toString() {
