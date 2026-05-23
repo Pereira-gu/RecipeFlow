@@ -1,0 +1,16 @@
+# Configuração do Continue para o Ollama Local
+name: RecipeFlow Local Dev
+version: 1.0.0
+schema: v1
+
+# Define os modelos ativos no chat lateral
+models:
+  - name: Qwen 2.5 Coder (Local)
+    provider: ollama
+    model: qwen2.5-coder:7b
+
+# Define o modelo responsável pelo Autocomplete (Tab)
+tabAutocompleteModel:
+  name: Qwen 2.5 Coder Autocomplete
+  provider: ollama
+  model: qwen2.5-coder:7b

@@ -11,8 +11,16 @@ import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
+import androidx.activity.EdgeToEdge;
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
+import androidx.core.graphics.Insets;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowInsetsCompat;
+
 
 import com.bumptech.glide.Glide;
+
 import com.google.android.material.button.MaterialButton;
 import com.unicid.recipeflow.model.Ingrediente;
 import com.unicid.recipeflow.model.Receita;
@@ -25,7 +33,7 @@ import java.util.Locale;
 
 public class RecipeDetailActivity extends AppCompatActivity {
 
-    private EditText editTitle, editOrigin, editIngredients, editInstructions, editNotes;
+    private EditText editTitle, editOrigin, editIngredients, editInstructions, editNotes, editVideoUrl;
     private RatingBar ratingBar;
     private MaterialButton btnSave, btnDelete, btnKitchenMode, btnTimer, btnRetryTranslation, btnWatchVideo;
     private ImageView imgRecipe;
@@ -36,15 +44,46 @@ public class RecipeDetailActivity extends AppCompatActivity {
     private ReceitaService receitaService;
     private Receita currentRecipe;
     private boolean isEditMode = false;
+    private boolean isUserEditing = false;
     private boolean isKitchenModeActive = false;
+    private boolean isRandomRecipe = false;
     private CountDownTimer countDownTimer;
+
+    private final ActivityResultLauncher<String> pickImageLauncher = registerForActivityResult(
+            new ActivityResultContracts.GetContent(),
+            uri -> {
+                if (uri != null) {
+                    try {
+                        String savedPath = copyUriToInternalStorage(uri);
+                        if (savedPath != null) {
+                            if (currentRecipe == null) {
+                                currentRecipe = new Receita();
+                            }
+                            currentRecipe.setFotoUrl(savedPath);
+                            Glide.with(this).load(savedPath).into(imgRecipe);
+                            Toast.makeText(this, "Foto atualizada!", Toast.LENGTH_SHORT).show();
+                        }
+                    } catch (Exception e) {
+                        Toast.makeText(this, "Erro ao carregar imagem da galeria", Toast.LENGTH_SHORT).show();
+                    }
+                }
+            }
+    );
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        EdgeToEdge.enable(this);
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_recipe_detail);
 
+        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.nestedScrollViewDetail), (v, insets) -> {
+            Insets systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
+            v.setPadding(v.getPaddingLeft(), v.getPaddingTop(), v.getPaddingRight(), systemBars.bottom);
+            return insets;
+        });
+
         receitaDao = AppDatabase.getDatabase(this).receitaDao();
+
         receitaService = new ReceitaService(receitaDao);
 
         initializeViews();
@@ -60,6 +99,54 @@ public class RecipeDetailActivity extends AppCompatActivity {
             getSupportActionBar().setTitle("");
         }
         toolbar.setNavigationOnClickListener(v -> finish());
+    }
+
+    @Override
+    public boolean onCreateOptionsMenu(android.view.Menu menu) {
+        getMenuInflater().inflate(R.menu.menu_recipe_detail, menu);
+        // Só mostra o lápis se estivermos visualizando uma receita existente e não estivermos já editando
+        android.view.MenuItem editItem = menu.findItem(R.id.action_edit);
+        if (editItem != null) {
+            editItem.setVisible(isEditMode && !isUserEditing && !isKitchenModeActive);
+        }
+        
+        // Mostrar reroll APENAS se for uma receita aleatória (externa) e não estivermos no modo cozinha
+        android.view.MenuItem rerollItem = menu.findItem(R.id.action_reroll);
+        if (rerollItem != null) {
+            rerollItem.setVisible(isRandomRecipe && !isKitchenModeActive);
+        }
+        return true;
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(android.view.MenuItem item) {
+        if (item.getItemId() == R.id.action_edit) {
+            setEditEnabled(true);
+            return true;
+        } else if (item.getItemId() == R.id.action_reroll) {
+            rerollRecipe();
+            return true;
+        }
+        return super.onOptionsItemSelected(item);
+    }
+
+    private void setEditEnabled(boolean enabled) {
+        isUserEditing = enabled;
+        editTitle.setEnabled(enabled);
+        editOrigin.setEnabled(enabled);
+        editIngredients.setEnabled(enabled);
+        editInstructions.setEnabled(enabled);
+        editNotes.setEnabled(enabled);
+        editVideoUrl.setEnabled(enabled);
+        editVideoUrl.setVisibility(enabled ? View.VISIBLE : View.GONE);
+        ratingBar.setIsIndicator(!enabled);
+        
+        btnSave.setVisibility(enabled ? View.VISIBLE : View.GONE);
+        if (isEditMode) {
+            btnDelete.setVisibility(enabled ? View.VISIBLE : View.GONE);
+        }
+        
+        invalidateOptionsMenu();
     }
 
     private void initializeViews() {
@@ -78,17 +165,27 @@ public class RecipeDetailActivity extends AppCompatActivity {
         imgRecipe = findViewById(R.id.imgRecipeDetail);
         toolbar = findViewById(R.id.toolbar);
         editOrigin = findViewById(R.id.editOrigin);
+        editVideoUrl = findViewById(R.id.editVideoUrl);
     }
+
 
     private void checkIntent() {
         if (getIntent().hasExtra("RECIPE_ID")) {
             long recipeId = getIntent().getLongExtra("RECIPE_ID", -1);
             loadRecipe(recipeId);
             isEditMode = true;
-            btnDelete.setVisibility(View.VISIBLE);
+            isRandomRecipe = false;
+            setEditEnabled(false); // Inicia em modo leitura para receitas existentes
         } else if (getIntent().hasExtra("EXTERNAL_RECIPE")) {
             currentRecipe = (Receita) getIntent().getSerializableExtra("EXTERNAL_RECIPE");
             preFillFromExternal();
+            isEditMode = false;
+            isRandomRecipe = true;
+            setEditEnabled(true); // Nova receita externa inicia em modo edição
+        } else {
+            isEditMode = false;
+            isRandomRecipe = false;
+            setEditEnabled(true); // Novo cadastro manual inicia em modo edição
         }
     }
 
@@ -97,6 +194,7 @@ public class RecipeDetailActivity extends AppCompatActivity {
             editTitle.setText(currentRecipe.getTitulo());
             editInstructions.setText(currentRecipe.getPassoAPasso());
             editTitle.setText(currentRecipe.getTitulo());
+            editVideoUrl.setText(currentRecipe.getVideoUrl());
 
             if (currentRecipe.getOrigem() != null) {
                 editOrigin.setText(currentRecipe.getOrigem());
@@ -131,18 +229,14 @@ public class RecipeDetailActivity extends AppCompatActivity {
 
     private void loadRecipe(long id) {
         currentRecipe = receitaDao.getRecipeById(id);
-        editTitle.setText(currentRecipe.getTitulo());
-
-        if (currentRecipe.getOrigem() != null) {
-            editOrigin.setText(currentRecipe.getOrigem());
-        }
-
         if (currentRecipe != null) {
             editTitle.setText(currentRecipe.getTitulo());
             editInstructions.setText(currentRecipe.getPassoAPasso());
             editNotes.setText(currentRecipe.getNotasPessoais());
+            editOrigin.setText(currentRecipe.getOrigem());
+            editVideoUrl.setText(currentRecipe.getVideoUrl());
             ratingBar.setRating(currentRecipe.getClassificacao());
-            
+
             if (currentRecipe.getFotoUrl() != null && !currentRecipe.getFotoUrl().isEmpty()) {
                 Glide.with(this).load(currentRecipe.getFotoUrl()).into(imgRecipe);
             }
@@ -171,9 +265,47 @@ public class RecipeDetailActivity extends AppCompatActivity {
         btnSave.setOnClickListener(v -> saveRecipe());
         btnDelete.setOnClickListener(v -> deleteRecipe());
         btnKitchenMode.setOnClickListener(v -> toggleKitchenMode());
-        btnTimer.setOnClickListener(v -> startTimer(5 * 60 * 1000));
+        btnTimer.setOnClickListener(v -> showTimerOptions());
         btnRetryTranslation.setOnClickListener(v -> retryTranslation());
         btnWatchVideo.setOnClickListener(v -> watchVideo());
+
+        imgRecipe.setOnClickListener(v -> {
+            if (isUserEditing) {
+                pickImageLauncher.launch("image/*");
+            }
+        });
+
+        editIngredients.addTextChangedListener(new android.text.TextWatcher() {
+            private boolean isFormatting = false;
+            @Override
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+            @Override
+            public void onTextChanged(CharSequence s, int start, int before, int count) {}
+            @Override
+            public void afterTextChanged(android.text.Editable s) {
+                if (isFormatting || !isUserEditing) return;
+                String text = s.toString();
+                if (text.endsWith("\n")) {
+                    isFormatting = true;
+                    s.append("• ");
+                    isFormatting = false;
+                } else if (text.length() > 0 && s.charAt(0) != '•' && !text.startsWith("•")) {
+                     isFormatting = true;
+                     s.insert(0, "• ");
+                     isFormatting = false;
+                }
+            }
+        });
+    }
+
+    private void showTimerOptions() {
+        String[] options = {"1 min", "5 min", "10 min", "15 min", "30 min", "45 min", "1 hora"};
+        int[] values = {1, 5, 10, 15, 30, 45, 60};
+        
+        new androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle("Configurar Timer")
+            .setItems(options, (dialog, which) -> startTimer(values[which] * 60 * 1000))
+            .show();
     }
 
     private void watchVideo() {
@@ -208,20 +340,74 @@ public class RecipeDetailActivity extends AppCompatActivity {
         }
     }
 
+    private void rerollRecipe() {
+        android.app.ProgressDialog progress = new android.app.ProgressDialog(this);
+        progress.setTitle("Buscando Nova Sugestão");
+        progress.setMessage("Consultando o Chef e traduzindo...");
+        progress.setCancelable(false);
+        progress.show();
+
+        receitaService.buscarReceitaExterna(new ReceitaService.OnExternalRecipeListener() {
+            @Override
+            public void onSuccess(Receita receita) {
+                runOnUiThread(() -> {
+                    progress.dismiss();
+                    currentRecipe = receita;
+                    isEditMode = false;
+                    isUserEditing = true;
+                    isRandomRecipe = true;
+                    preFillFromExternal();
+                    setEditEnabled(true); 
+                    Toast.makeText(RecipeDetailActivity.this, "Nova receita sorteada!", Toast.LENGTH_SHORT).show();
+                });
+            }
+
+            @Override
+            public void onError(String message) {
+                runOnUiThread(() -> {
+                    progress.dismiss();
+                    Toast.makeText(RecipeDetailActivity.this, "Erro ao buscar nova receita: " + message, Toast.LENGTH_LONG).show();
+                });
+            }
+        });
+    }
+
     private void toggleKitchenMode() {
         isKitchenModeActive = !isKitchenModeActive;
         if (isKitchenModeActive) {
             getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
             editInstructions.setTextSize(22);
             editIngredients.setTextSize(20);
+            
+            // Foco Visual Absoluto: Ocultar o que não é essencial
+            editOrigin.setVisibility(View.GONE);
+            editNotes.setVisibility(View.GONE);
+            ratingBar.setVisibility(View.GONE);
+            btnSave.setVisibility(View.GONE);
+            btnDelete.setVisibility(View.GONE);
+            
+            // Desativar edição
+            editInstructions.setEnabled(false);
+            editIngredients.setEnabled(false);
+            editTitle.setEnabled(false);
+            
             btnKitchenMode.setText("Sair");
-            Toast.makeText(this, "Modo Cozinha: Tela sempre ligada", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "Modo Cozinha: Foco Total", Toast.LENGTH_SHORT).show();
         } else {
             getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
             editInstructions.setTextSize(16);
             editIngredients.setTextSize(16);
+            
+            editOrigin.setVisibility(View.VISIBLE);
+            editNotes.setVisibility(View.VISIBLE);
+            ratingBar.setVisibility(View.VISIBLE);
+            
+            // Restaurar estado de edição anterior
+            setEditEnabled(isUserEditing);
+            
             btnKitchenMode.setText("Cozinhar");
         }
+        invalidateOptionsMenu();
     }
 
     private void startTimer(long millis) {
@@ -250,6 +436,7 @@ public class RecipeDetailActivity extends AppCompatActivity {
         String origin = editOrigin.getText().toString().trim();
         String instructions = editInstructions.getText().toString().trim();
         String ingredientsStr = editIngredients.getText().toString().trim();
+        String videoUrl = editVideoUrl.getText().toString().trim();
 
 
         if (title.isEmpty()) {
@@ -266,6 +453,7 @@ public class RecipeDetailActivity extends AppCompatActivity {
         currentRecipe.setPassoAPasso(instructions);
         currentRecipe.setNotasPessoais(editNotes.getText().toString());
         currentRecipe.setClassificacao((int) ratingBar.getRating());
+        currentRecipe.setVideoUrl(videoUrl);
 
         new Thread(() -> {
             if (isEditMode) {
@@ -303,6 +491,25 @@ public class RecipeDetailActivity extends AppCompatActivity {
             receitaDao.softDelete(currentRecipe.getId());
             Toast.makeText(this, "Excluído", Toast.LENGTH_SHORT).show();
             finish();
+        }
+    }
+
+    private String copyUriToInternalStorage(android.net.Uri uri) {
+        try {
+            String fileName = "recipe_image_" + System.currentTimeMillis() + ".jpg";
+            java.io.File file = new java.io.File(getFilesDir(), fileName);
+            try (java.io.InputStream inputStream = getContentResolver().openInputStream(uri);
+                 java.io.OutputStream outputStream = new java.io.FileOutputStream(file)) {
+                byte[] buffer = new byte[4096];
+                int read;
+                while ((read = inputStream.read(buffer)) != -1) {
+                    outputStream.write(buffer, 0, read);
+                }
+                return file.getAbsolutePath();
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            return null;
         }
     }
 }

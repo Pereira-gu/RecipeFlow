@@ -7,8 +7,13 @@ import android.widget.SearchView;
 import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.activity.EdgeToEdge;
+import androidx.core.graphics.Insets;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowInsetsCompat;
 
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
+
 import com.unicid.recipeflow.adapter.RecipeAdapter;
 import com.unicid.recipeflow.model.Receita;
 import com.unicid.recipeflow.repository.AppDatabase;
@@ -31,11 +36,19 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        EdgeToEdge.enable(this);
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
+        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main), (v, insets) -> {
+            Insets systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
+            v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom);
+            return insets;
+        });
+
         // Inicializa Banco e Serviço
         receitaDao = AppDatabase.getDatabase(this).receitaDao();
+
         receitaService = new ReceitaService(receitaDao);
 
         initializeViews();
@@ -105,20 +118,34 @@ public class MainActivity extends AppCompatActivity {
 
         // Descoberta Externa + Tradução (Requisito 2.3)
         findViewById(R.id.btnSorteioExterno).setOnClickListener(v -> {
-            Toast.makeText(this, "Consultando TheMealDB...", Toast.LENGTH_SHORT).show();
+            android.app.ProgressDialog progress = new android.app.ProgressDialog(this);
+            progress.setTitle("Buscando Receita");
+            progress.setMessage("Consultando o Chef Internacional e traduzindo...");
+            progress.setCancelable(false);
+            progress.show();
+
             receitaService.buscarReceitaExterna(new ReceitaService.OnExternalRecipeListener() {
                 @Override
                 public void onSuccess(Receita receita) {
-                    // Ao encontrar, abre a tela de detalhes preenchida para o usuário decidir se salva
-                    // Nota: Aqui poderíamos passar o objeto via Serializable
-                    Intent intent = new Intent(MainActivity.this, RecipeDetailActivity.class);
-                    intent.putExtra("EXTERNAL_RECIPE", receita);
-                    startActivity(intent);
+                    runOnUiThread(() -> {
+                        progress.dismiss();
+                        Intent intent = new Intent(MainActivity.this, RecipeDetailActivity.class);
+                        intent.putExtra("EXTERNAL_RECIPE", receita);
+                        startActivity(intent);
+                    });
                 }
 
                 @Override
                 public void onError(String message) {
-                    Toast.makeText(MainActivity.this, "Erro: " + message, Toast.LENGTH_LONG).show();
+                    runOnUiThread(() -> {
+                        progress.dismiss();
+                        new androidx.appcompat.app.AlertDialog.Builder(MainActivity.this)
+                            .setTitle("Ops! Algo deu errado")
+                            .setMessage("Não conseguimos obter ou traduzir a receita agora: " + message + "\nDeseja tentar novamente?")
+                            .setPositiveButton("Sim", (d, w) -> v.performClick())
+                            .setNegativeButton("Agora não", null)
+                            .show();
+                    });
                 }
             });
         });
